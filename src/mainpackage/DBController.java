@@ -2,6 +2,8 @@ package mainpackage;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class DBController {
     public static ArrayList<Integer> books = new ArrayList<>();
@@ -49,6 +51,7 @@ public class DBController {
             statement = connection.createStatement();
             resultSet = statement.executeQuery("SELECT book_id FROM books\n" +
                     "WHERE book_id = " + bookID);
+
             //Если такая книга есть реализуем функцию
             if (resultSet.next()) {
                 resultSet = statement.executeQuery("SELECT link_book_id FROM links\n" +
@@ -67,6 +70,7 @@ public class DBController {
                 }
                 if (books.isEmpty() && message)
                     System.out.println("Вы можете прочитать эту книгу");
+
             //если такой книги нет
             } else {
                 System.out.println("Такой книги нет в библиотеке: " + bookID);
@@ -81,9 +85,7 @@ public class DBController {
             connection = DriverManager.getConnection(URL, USER, PASSWORD);
             statement = connection.createStatement();
             resultSet = statement.executeQuery("SELECT * FROM books");
-            while (resultSet.next()) {
-                switchInt = resultSet.getInt("book_id");
-            }
+            while (resultSet.next()) { switchInt = resultSet.getInt("book_id"); }
         } catch (SQLException se) { System.out.println("Exception: " + se); } finally {
             try { connection.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
             try { statement.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
@@ -98,7 +100,6 @@ public class DBController {
             connection = DriverManager.getConnection(URL, USER, PASSWORD);
             statement = connection.createStatement();
             statement.executeUpdate(update);
-
         } catch (SQLException se) { System.out.println("Exception: " + se); } finally {
             try { connection.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
             try { statement.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
@@ -158,19 +159,21 @@ public class DBController {
             connection = DriverManager.getConnection(URL, USER, PASSWORD);
             statement = connection.createStatement();
             resultSet = statement.executeQuery("SELECT * FROM books");
-            while (resultSet.next()) {
-                createdBooks.add(resultSet.getInt("book_id"));
-            }
+
+            //добавляем все книги в ArrayList
+            while (resultSet.next()) { createdBooks.add(resultSet.getInt("book_id")); }
             resultSet = statement.executeQuery("SELECT link_book_id FROM links\n" +
                     "WHERE book_id = " + bookID);
-            while (resultSet.next()) {
-                createdLinks.add(resultSet.getInt("link_book_id"));
-            }
+
+            //добавляем все ссылки в ArrayList
+            while (resultSet.next()) { createdLinks.add(resultSet.getInt("link_book_id")); }
             for (Integer link : links) {
                 readBook(link, false);
+
+                //проверяем, не ведет ли ссылка на родителя
                 if (DBController.books.contains(bookID)) {
-                    System.out.println("Не удалось добавить одну из ссылок, тк она ведет на книгу-родителя");
-                }
+                    System.out.println("Не удалось добавить одну из ссылок, тк она ведет на книгу-родителя"); }
+                //добавляем в таблицу БД
                 else {
                     if (!createdLinks.contains(link) && createdBooks.contains(link) && link != bookID) {
                         statement.executeUpdate("INSERT INTO links (book_id, link_book_id)\n" +
@@ -194,6 +197,8 @@ public class DBController {
             //устанавливаем соединение и отсылаем запрос
             connection = DriverManager.getConnection(URL, USER, PASSWORD);
             statement = connection.createStatement();
+
+            //удаляем все упоминания о книге из БД
             if (deleteAll) {
                 statement.executeUpdate("DELETE FROM links\n" +
                         "WHERE book_id = " + bookID + " OR link_book_id = " + bookID);
@@ -217,15 +222,49 @@ public class DBController {
             connection = DriverManager.getConnection(URL, USER, PASSWORD);
             statement = connection.createStatement();
             resultSet = statement.executeQuery("SELECT * FROM books");
+
             if (resultSet.next()) {
+                //выключаем безопасный режим
                 statement.executeUpdate("SET SQL_SAFE_UPDATES = 0");
+
+                //удаляем все книги и все ссылки
                 statement.executeUpdate("DELETE FROM books");
                 statement.executeUpdate("DELETE FROM links");
+
+                //включаем безопасный режим
                 statement.executeUpdate("SET SQL_SAFE_UPDATES = 1");
-            } else {
-                System.out.println("Ваша библиотека пуста. Удаление невозможно");
-            }
+
+            } else { System.out.println("Ваша библиотека пуста. Удаление невозможно"); }
         } catch (SQLException se) { System.out.println("Exception: " + se); } finally {
+            try { connection.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
+            try { statement.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
+            try { resultSet.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
+        }
+    }
+
+    //сортировка
+    public static void sort() {
+        try {
+            //строки для открытия соединения с БД/получения ResultSet
+            connection = DriverManager.getConnection(URL, USER, PASSWORD);
+            statement = connection.createStatement();
+
+            //получаем id последней книги
+            resultSet = statement.executeQuery("SELECT max(book_id) AS book_id FROM books\n");
+            resultSet.next();
+
+            //создаем граф
+            Graph graph = new Graph(resultSet.getInt("book_id") + 1);
+            resultSet = statement.executeQuery("SELECT books.book_id, links.link_book_id FROM books\n" +
+                    "LEFT JOIN links\n" +
+                    "ON books.book_id = links.book_id");
+
+            //заполняем граф ребрами, используя данные из БД
+            while (resultSet.next()) {
+                graph.addEdge(resultSet.getInt("book_id"), resultSet.getInt("link_book_id")); }
+            graph.topologicalSort();
+        } catch (SQLException se) { System.out.println("Exception: " + se); } finally {
+            //строки для закрытия соединения с БД
             try { connection.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
             try { statement.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}
             try { resultSet.close(); } catch(SQLException se) {System.out.println("Exception: " + se);}

@@ -18,23 +18,30 @@ public class Controller {
         System.out.println("4.Удалить книгу");
         System.out.println("5.Редактировать книгу");
         System.out.println("6.Очистить библиотеку");
+        System.out.println("7.Сортировать все");
         System.out.println("0.Выход");
 
         //переход к выбранной опции
         byte choose;
         try {
-            do {
-                choose = (byte) readIntMenu("[0-6]");
-            } while (choose == -1);
+
+            //readInt и readIntMenu - функции, созданные для удобства и проверки ввода
+            do { choose = (byte) readIntMenu("[0-7]"); } while (choose == -1);
             switch (choose) {
                 case 1 -> {
                     System.out.println("Введите id книги");
                     int bookID;
-                    do {
-                        bookID = readInt();
-                    } while (bookID == -1);
+
+                    //считываем id пока не получим правильную строку
+                    do { bookID = readInt(); } while (bookID == -1);
+
+                    //вызываем метод, выводящий все дерево книг по переданному ID
                     DBController.readBook(bookID, true);
+
+                    //переворачиваем ArrayList в классе DBController
                     Collections.reverse(DBController.books);
+
+                    //если он не пуст, выводим и чистим
                     if (!DBController.books.isEmpty()) {
                         System.out.println("Список книг, обязательных к прочтению:");
                         for (Integer readBook : DBController.books) {
@@ -44,11 +51,26 @@ public class Controller {
                         DBController.closeConnection();
                     }
                 }
+
+                //функция для показа всех таблиц
                 case 2 -> DBController.showTables();
+
+                //функция для добавления книг
                 case 3 -> addBook();
+
+                //функция для удаления
                 case 4 -> deleteBook();
+
+                //функция для редактирования книг и ссылок
                 case 5 -> editBook();
+
+                //очистить БД
                 case 6 -> DBController.clearBooksTable();
+
+                //функция сортировки sort() (выводим все книги в порядке, в котором их возможно прочитать)
+                case 7 -> DBController.sort();
+
+                //возвращаем false в Main. Выход из программы
                 case 0 -> {
                     return false;
                 }
@@ -57,6 +79,7 @@ public class Controller {
             e.printStackTrace();
         }
 
+        //если все прошло успешно возвращаем true. Продолжаем работу
         return true;
     }
 
@@ -82,6 +105,7 @@ public class Controller {
 
         System.out.println("Введите ссылки");
 
+        //считываем ссылки, пока не будет введена пустая строка (addInt вернет -1)
         while (true) {
             String addInt = "" + readInt();
             if (!addInt.equals("") && !addInt.equals("-1"))
@@ -90,6 +114,7 @@ public class Controller {
                 break;
         }
 
+        //добавляем ссылки
         DBController.addLinks(0, links);
     }
 
@@ -115,9 +140,9 @@ public class Controller {
         byte choose;
         int bookID;
         System.out.println("Введите id книги");
-        do {
-            bookID = readInt();
-        } while (bookID == -1);
+
+        //читаем, пока не получим верную вводную информацию
+        do { bookID = readInt(); } while (bookID == -1);
         if (!DBController.isExist(bookID)) {
             System.out.println("Такой книги не существует");
             return false;
@@ -155,7 +180,7 @@ public class Controller {
                 ArrayList<Integer> links = new ArrayList<>();
                 while (true) {
                     String addInt = "" + readInt();
-                    if (!addInt.equals(""))
+                    if (!addInt.equals("0"))
                         links.add(Integer.parseInt(addInt));
                     else
                         break;
@@ -204,6 +229,8 @@ public class Controller {
             String string = reader.readLine();
             Pattern pattern = Pattern.compile("[^0-9]");
             Matcher matcher = pattern.matcher(string);
+            if (string.equals(""))
+                return 0;
             if (matcher.find()) {
                 System.out.println("Недопустимое значение");
             } else {
